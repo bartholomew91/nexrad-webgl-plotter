@@ -19,7 +19,7 @@ Select a radar file to load from the dropdown and click "Load File"
 
 After the radar file has been loaded you can click on "Start Sweep" and it should start plotting the data.
 
-![image](https://i.imgur.com/om2p7Eq.jpg)
+![image](https://i.imgur.com/YPX2MsO.jpg)
 
 ## ToDo
 * More accurate plotting

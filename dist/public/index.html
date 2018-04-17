@@ -36,9 +36,7 @@
         </div>
         <script src="three.min.js"></script>
         <script src="https://code.jquery.com/jquery-1.11.1.js"></script>
-        <script src="https://d3js.org/d3-color.v1.min.js"></script>
-        <script src="https://d3js.org/d3-interpolate.v1.min.js"></script>
-        <script src="https://d3js.org/d3-scale-chromatic.v1.min.js"></script>
+        <script src="https://d3js.org/d3.v5.min.js"></script>
         <script src="/socket.io/socket.io.js"></script>
         <script>
             /**
@@ -137,15 +135,16 @@
                         geometry.vertices.push(new THREE.Vector3(x[index], y[index], 0))
                         /**
                          * push the color data for the vert
-                         * we need to convert the data to a
-                         * 0.01 precision so it correctly maps
-                         * to the color table. We also add 0.5
-                         * so that any negative correctly map
-                         * to a positive. This is due to the
-                         * D3 interpolates only supporting float 
-                         * values between 0 and 1.
+                         * TODO: Add colortable selection
                          */
-                        geometry.colors.push(new THREE.Color(d3.interpolateViridis(((data[index]/100))+.5)))
+                        //var colorscale = d3.scaleSequential().domain([-32.0, 94.5]).clamp(true).interpolator(d3.interpolateViridis)
+                        var range = [
+                            0x000000,0x9C9C9C,0x767676,0xFFAAAA,0xEE8C8C,
+                            0xC97070,0x00FB90,0x00BB00,0xFFFF70,0xD0D060,
+                            0xFF6060,0xDA0000,0xAE0000,0x0000FF,0xFFFFFF,0xE700FF
+                        ]
+                        var colorscale = d3.scaleQuantize().domain([-32.0, 94.5]).range(range)
+                        geometry.colors.push(new THREE.Color(colorscale(data[index])))
                     }
                 }
 

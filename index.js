@@ -73,5 +73,5 @@ io.on('connection', client => {
 })
 
 http.listen(8080, () => {
-    console.log('Listening on *:3000')
+    console.log('Listening on *:8080')
 })
