@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset=utf-8>
+        <style>
+            body { margin: 0; }
+            canvas { width: 100%; height: 100% }
+        </style>
+    </head>
+    <body>
+        <div style="position: absolute; background: #fff; padding: 5px; border-bottom-right-radius: 5px">
+            <select id="radar_files">
+                <option value="0" selected>Choose Radar File</option>
+                <option value="radar_files/KTLX20130520_201643_V06">KTLX20130520_201643_V06</option>
+                <option value="radar_files/KTLX20130520_200811_V06">KTLX20130520_200811_V06</option>
+                <option value="radar_files/KTLX20130520_200356_V06">KTLX20130520_200356_V06</option>
+                <option value="radar_files/KTLX20130520_201229_V06">KTLX20130520_201229_V06</option>
+                <option value="radar_files/KTLX20130520_202058_V06">KTLX20130520_202058_V06</option>
+                <option value="radar_files/KTLX20130520_203800_V06">KTLX20130520_203800_V06</option>
+                <option value="radar_files/KTLX20130520_202928_V06">KTLX20130520_202928_V06</option>
+                <option value="radar_files/KTLX20130520_203346_V06">KTLX20130520_203346_V06</option>
+                <option value="radar_files/KTLX20130520_203800_V06">KTLX20130520_203800_V06</option>
+                <option value="radar_files/KTLX20130520_204215_V06">KTLX20130520_204215_V06</option>
+                <option value="radar_files/KTLX20130520_204630_V06">KTLX20130520_204630_V06</option>
+                <option value="radar_files/KTLX20130520_205045_V06">KTLX20130520_205045_V06</option>
+                <option value="radar_files/KTLX20130520_205459_V06">KTLX20130520_205459_V06</option>
+                <option value="radar_files/KTLX20130520_205914_V06">KTLX20130520_205914_V06</option>
+            </select>
+            <button id="load">Load File</button>
+            <button id="sweep" disabled>Start Sweep</button>
+            <button id="zoomOut">-</button>
+            <button id="zoomIn">+</button>
+        </div>
+        <div id="loader" style="display: none; position: absolute; left: 40%; top: 40%; padding: 100px; background: #fff; border-radius: 10px">
+            Loading data please wait...
+        </div>
+        <script src="three.min.js"></script>
+        <script src="https://code.jquery.com/jquery-1.11.1.js"></script>
+        <script src="https://d3js.org/d3-color.v1.min.js"></script>
+        <script src="https://d3js.org/d3-interpolate.v1.min.js"></script>
+        <script src="https://d3js.org/d3-scale-chromatic.v1.min.js"></script>
+        <script src="/socket.io/socket.io.js"></script>
+        <script>
+            /**
+             * Setup THREE.js
+            */
+            var cameraPos = 200;
+            var scene = new THREE.Scene();
+            var camera = new THREE.PerspectiveCamera( 75, window.innerWidth / window.innerHeight, 0.1, 1000 );
+            var renderer = new THREE.WebGLRenderer();
+            var material = new THREE.PointsMaterial({ // Points material
+                size: 1,
+                vertexColors: THREE.VertexColors
+            })
+            var sweeper = null // for storing the interval
+
+            renderer.setSize( window.innerWidth, window.innerHeight );
+            document.body.appendChild( renderer.domElement );
+
+            $(function() {
+                var socket = io()
+                var scan = 1
+                var totalScans = 0;
+                
+                // sweep through and grab the data for each sweep
+                function sweep() {
+                    if(scan < totalScans || totalScans == 0) {
+                        $('#load').attr('disabled', true)
+                        socket.emit('sweep', scan)
+                        scan++
+                    } else {
+                        $('#load').attr('disabled', false)
+                    }
+                }
+
+                // load the selected radar file
+                $('#load').on('click', function() {
+                    sweeper = null
+                    var radar_file = $("#radar_files").val()
+
+                    socket.emit('loadFile', radar_file)
+                })
+
+                // clear the scene, and start the sweep
+                $('#sweep').on('click', function() {
+                    scene.remove.apply(scene, scene.children);
+                    scan = 1
+                    sweeper = setInterval(sweep, 10)
+                })
+
+                $('#zoomOut').on('click', function() {
+                    cameraPos += 25;
+                })
+
+                $('#zoomIn').on('click', function() {
+                    cameraPos -= 25;
+                })
+
+                // plot the data onto the canvas
+                socket.on('plot', function(data) {
+                    plot(data.coords, data.data)
+                })
+
+                // display the file loading notification
+                socket.on('fileLoading', function(loading) {
+                    if(loading) {
+                        $('#loader').show()
+                    } else {
+                        $('#loader').hide()
+                        $('#sweep').attr('disabled', false)
+                    }
+                })
+
+                // set the total number of scans need to loop through
+                socket.on('setScans', function(scans) {
+                    totalScans = scans
+                })
+
+                // log any erros that get thrown from the server
+                socket.on('error', function(data) {
+                    console.log(data.message)
+                })
+            })
+
+            // this function plots all the data onto Points with THREE.js
+            function plot(coords, data) {
+                var x = JSON.parse(coords.x) // parse the x coords
+                var y = JSON.parse(coords.y) // parse the y coords
+
+                var geometry = new THREE.Geometry() // create new geometry for the points
+
+                // loop through the coords on the x axis
+                for(index in x) {
+                    // only display data if its dbZ > -33
+                    if(data[index] > -33) {
+                        // push the data to the vertices at x,y,0
+                        geometry.vertices.push(new THREE.Vector3(x[index], y[index], 0))
+                        /**
+                         * push the color data for the vert
+                         * we need to convert the data to a
+                         * 0.01 precision so it correctly maps
+                         * to the color table. We also add 0.5
+                         * so that any negative correctly map
+                         * to a positive. This is due to the
+                         * D3 interpolates only supporting float 
+                         * values between 0 and 1.
+                         */
+                        geometry.colors.push(new THREE.Color(d3.interpolateViridis(((data[index]/100))+.5)))
+                    }
+                }
+
+
+                var pointCloud = new THREE.Points(geometry, material) // create the point cloud
+                scene.add(pointCloud) // add the point cloud to the scene
+            }
+
+            // render the scene
+            function render() {
+                requestAnimationFrame( render );
+                camera.position.z = cameraPos;
+                renderer.render( scene, camera );
+            }
+            render();
+        </script>
+    </body>
+</html>
